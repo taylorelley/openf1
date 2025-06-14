@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
@@ -10,6 +11,9 @@ from loguru import logger
 
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+# Year used when ingesting historical data via the control panel.
+HISTORICAL_YEAR = os.getenv("OPENF1_HISTORICAL_SEASON", "2024")
 
 # Commands used to launch the services.
 SERVICES: dict[str, list[str]] = {
@@ -21,8 +25,18 @@ SERVICES: dict[str, list[str]] = {
         "--port",
         "8001",
     ],
-    "ingestor_real_time": ["python", "-m", "openf1.services.ingestor_livetiming.real_time.app"],
-    "ingestor_historical": ["python", "-m", "openf1.services.ingestor_livetiming.historical.main"],
+    "ingestor_real_time": [
+        "python",
+        "-m",
+        "openf1.services.ingestor_livetiming.real_time.app",
+    ],
+    "ingestor_historical": [
+        "python",
+        "-m",
+        "openf1.services.ingestor_livetiming.historical.main",
+        "ingest-season",
+        HISTORICAL_YEAR,
+    ],
 }
 
 # Running processes keyed by service name.
