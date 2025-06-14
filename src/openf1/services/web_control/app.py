@@ -13,7 +13,14 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 # Commands used to launch the services.
 SERVICES: dict[str, list[str]] = {
-    "query_api": ["uvicorn", "openf1.services.query_api.app:app"],
+    "query_api": [
+        "uvicorn",
+        "openf1.services.query_api.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001",
+    ],
     "ingestor_real_time": ["python", "-m", "openf1.services.ingestor_livetiming.real_time.app"],
     "ingestor_historical": ["python", "-m", "openf1.services.ingestor_livetiming.historical.main"],
 }
