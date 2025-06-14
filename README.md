@@ -54,14 +54,15 @@ export MONGO_CONNECTION_STRING="mongodb://localhost:27017"
 
 ## Running with Docker Compose
 
-The repository includes a `docker-compose.yml` file that sets up MongoDB and the OpenF1 API.
+The repository includes a `docker-compose.yml` file that sets up MongoDB and starts the OpenF1 control panel.
 After installing [Docker](https://docs.docker.com/get-docker/) run:
 
 ```bash
 docker compose up --build
 ```
 
-The API will be available at [http://localhost:8000](http://localhost:8000).
+The control panel will be available at [http://localhost:9876](http://localhost:9876).
+Start the "Query API" service from the panel to access the API at [http://localhost:9877](http://localhost:9877).
 
 ## Supporting OpenF1
 

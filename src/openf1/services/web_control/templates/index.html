@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenF1 Control Panel</title>
+</head>
+<body>
+    <h1>OpenF1 Control Panel</h1>
+    <table border="1" cellspacing="0" cellpadding="4">
+        <tr>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+        {% for name, running in services.items() %}
+        <tr>
+            <td>{{ name }}</td>
+            <td>{{ 'running' if running else 'stopped' }}</td>
+            <td>
+                <form method="post" action="/control">
+                    <input type="hidden" name="name" value="{{ name }}">
+                    {% if running %}
+                    <input type="hidden" name="action" value="stop">
+                    <input type="submit" value="Stop">
+                    {% else %}
+                    <input type="hidden" name="action" value="start">
+                    <input type="submit" value="Start">
+                    {% endif %}
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

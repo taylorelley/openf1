@@ -9,11 +9,12 @@ services:
 
   openf1-api:
     build: .
-    command: uvicorn openf1.services.query_api.app:app --host 0.0.0.0 --port 8000
+    command: uvicorn openf1.services.web_control.app:app --host 0.0.0.0 --port 8000
     environment:
       - MONGO_CONNECTION_STRING=mongodb://mongo:27017
     ports:
       - "9876:8000"
+      - "9877:8001"
     depends_on:
       - mongo
 
