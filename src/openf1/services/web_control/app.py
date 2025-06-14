@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+from fastapi import FastAPI, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+from loguru import logger
+
+
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+# Commands used to launch the services.
+SERVICES: dict[str, list[str]] = {
+    "query_api": ["uvicorn", "openf1.services.query_api.app:app"],
+    "ingestor_real_time": ["python", "-m", "openf1.services.ingestor_livetiming.real_time.app"],
+    "ingestor_historical": ["python", "-m", "openf1.services.ingestor_livetiming.historical.main"],
+}
+
+# Running processes keyed by service name.
+running_processes: dict[str, subprocess.Popen] = {}
+
+app = FastAPI(title="OpenF1 Control Panel")
+
+
+def start_service(name: str) -> None:
+    if name in running_processes:
+        logger.info(f"Service {name} already running")
+        return
+    cmd = SERVICES.get(name)
+    if not cmd:
+        logger.warning(f"Unknown service: {name}")
+        return
+    logger.info(f"Starting service {name}: {' '.join(cmd)}")
+    running_processes[name] = subprocess.Popen(cmd)
+
+
+def stop_service(name: str) -> None:
+    process = running_processes.get(name)
+    if not process:
+        logger.info(f"Service {name} not running")
+        return
+    logger.info(f"Stopping service {name}")
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+    del running_processes[name]
+
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    statuses = {name: name in running_processes for name in SERVICES}
+    return templates.TemplateResponse(
+        "index.html", {"request": request, "services": statuses}
+    )
+
+
+@app.post("/control")
+async def control(name: str = Form(...), action: str = Form(...)):
+    if action == "start":
+        start_service(name)
+    elif action == "stop":
+        stop_service(name)
+    return RedirectResponse(url="/", status_code=303)
