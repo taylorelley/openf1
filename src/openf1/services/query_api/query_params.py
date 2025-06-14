@@ -141,7 +141,7 @@ def _replace_latest_by_actual_value(param: QueryParam) -> QueryParam:
     return param
 
 
-def parse_query_params(query_params_raw: dict) -> dict[str, QueryParam]:
+def parse_query_params(query_params_raw: dict) -> dict[str, list[QueryParam]]:
     query_params_str = _split_query_params(query_params_raw)
     query_params = sum((_str_to_query_params(s) for s in query_params_str), [])
     query_params = [_replace_latest_by_actual_value(p) for p in query_params]
@@ -154,7 +154,7 @@ def parse_query_params(query_params_raw: dict) -> dict[str, QueryParam]:
 
 
 def query_params_to_mongo_filters(
-    query_params: dict[str, QueryParam],
+    query_params: dict[str, list[QueryParam]],
 ) -> dict[str, dict]:
     return {
         key: {COMPARISON_OPERATORS_TO_MONGO[param.op]: param.value for param in params}
