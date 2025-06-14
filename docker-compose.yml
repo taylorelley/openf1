@@ -13,7 +13,7 @@ services:
     environment:
       - MONGO_CONNECTION_STRING=mongodb://mongo:27017
     ports:
-      - "8000:8000"
+      - "9876:8000"
     depends_on:
       - mongo
 
