@@ -15,8 +15,9 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 # Year used when ingesting historical data via the control panel.
 HISTORICAL_YEAR = os.getenv("OPENF1_HISTORICAL_SEASON", "2024")
 
-# Commands used to launch the services.
-SERVICES: dict[str, list[str]] = {
+# Base commands used to launch the services. For services that accept runtime
+# options, parameters can be injected before starting the process.
+BASE_SERVICES: dict[str, list[str]] = {
     "query_api": [
         "uvicorn",
         "openf1.services.query_api.app:app",
@@ -35,21 +36,33 @@ SERVICES: dict[str, list[str]] = {
         "-m",
         "openf1.services.ingestor_livetiming.historical.main",
         "ingest-season",
-        HISTORICAL_YEAR,
     ],
 }
 
 # Running processes keyed by service name.
 running_processes: dict[str, subprocess.Popen] = {}
 
+
+def get_service_cmd(name: str, *, year: str | None = None) -> list[str] | None:
+    """Return the command list for a service with optional parameters."""
+    base_cmd = BASE_SERVICES.get(name)
+    if not base_cmd:
+        return None
+
+    cmd = list(base_cmd)
+    if name == "ingestor_historical":
+        cmd.append(str(year or HISTORICAL_YEAR))
+
+    return cmd
+
 app = FastAPI(title="OpenF1 Control Panel")
 
 
-def start_service(name: str) -> None:
+def start_service(name: str, *, year: str | None = None) -> None:
     if name in running_processes:
         logger.info(f"Service {name} already running")
         return
-    cmd = SERVICES.get(name)
+    cmd = get_service_cmd(name, year=year)
     if not cmd:
         logger.warning(f"Unknown service: {name}")
         return
@@ -73,16 +86,23 @@ def stop_service(name: str) -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    statuses = {name: name in running_processes for name in SERVICES}
-    return templates.TemplateResponse(
-        "index.html", {"request": request, "services": statuses}
-    )
+    statuses = {name: name in running_processes for name in BASE_SERVICES}
+    context = {
+        "request": request,
+        "services": statuses,
+        "historical_year": HISTORICAL_YEAR,
+    }
+    return templates.TemplateResponse("index.html", context)
 
 
 @app.post("/control")
-async def control(name: str = Form(...), action: str = Form(...)):
+async def control(
+    name: str = Form(...),
+    action: str = Form(...),
+    year: str | None = Form(None),
+):
     if action == "start":
-        start_service(name)
+        start_service(name, year=year)
     elif action == "stop":
         stop_service(name)
     return RedirectResponse(url="/", status_code=303)
