@@ -63,6 +63,7 @@ docker compose up --build
 
 The control panel will be available at [http://localhost:9876](http://localhost:9876).
 Start the "Query API" service from the panel to access the API at [http://localhost:9877](http://localhost:9877).
+You can also set the desired season year for historical ingestion directly from the panel.
 
 ## Supporting OpenF1
 

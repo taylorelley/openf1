@@ -17,3 +17,5 @@ Query API starts on port `9877`.
 
 By default, the "ingestor_historical" service ingests data for season `2024`.
 Set the `OPENF1_HISTORICAL_SEASON` environment variable to override this year.
+You can also specify the desired season directly from the control panel before
+starting the service.
