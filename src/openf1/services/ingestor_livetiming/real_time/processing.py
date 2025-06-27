@@ -1,4 +1,5 @@
 import asyncio
+import ast
 import json
 import os
 
@@ -19,7 +20,7 @@ _session_key = None
 
 
 def _parse_message(line: str) -> Message:
-    topic, content, timepoint = eval(line)
+    topic, content, timepoint = ast.literal_eval(line)
 
     if isinstance(content, str):
         content = decode(content)
