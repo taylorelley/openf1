@@ -33,5 +33,34 @@
         </tr>
         {% endfor %}
     </table>
+
+    <h2>Settings</h2>
+    <form method="post" action="/settings">
+        <h3>Live Collector Topics</h3>
+        {% for topic in topics %}
+            <label>
+                <input type="checkbox" name="live_topics" value="{{ topic }}" {% if topic in selected_live_topics %}checked{% endif %}>{{ topic }}
+            </label><br>
+        {% endfor %}
+
+        <h3>Historical Collector Topics</h3>
+        {% for topic in topics %}
+            <label>
+                <input type="checkbox" name="hist_topics" value="{{ topic }}" {% if topic in selected_hist_topics %}checked{% endif %}>{{ topic }}
+            </label><br>
+        {% endfor %}
+
+        <h3>API Endpoints</h3>
+        {% for col in collections %}
+            <label>
+                <input type="checkbox" name="api_collections" value="{{ col }}" {% if col in selected_api_collections %}checked{% endif %}>{{ col }}
+            </label><br>
+        {% endfor %}
+
+        <h3>Historical Year</h3>
+        <input type="number" name="year" value="{{ historical_year }}" style="width:6em" />
+
+        <input type="submit" value="Save Settings">
+    </form>
 </body>
 </html>

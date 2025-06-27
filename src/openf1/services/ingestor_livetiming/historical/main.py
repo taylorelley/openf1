@@ -1,4 +1,5 @@
 import json
+import os
 import re
 from datetime import datetime, timedelta
 from functools import lru_cache
@@ -275,6 +276,10 @@ def _get_processed_documents(
 
     topics = set().union(*[get_source_topics(n) for n in collection_names])
     topics = sorted(list(topics))
+    env_topics = os.getenv("OPENF1_HIST_TOPICS")
+    if env_topics:
+        allowed = {t.strip() for t in env_topics.split(",") if t.strip()}
+        topics = [t for t in topics if t in allowed]
     if verbose:
         logger.info(f"Topics used: {topics}")
 

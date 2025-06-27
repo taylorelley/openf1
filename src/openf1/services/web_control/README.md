@@ -2,6 +2,8 @@
 
 This module exposes a very small web interface that can start or stop the
 main OpenF1 services.
+It also lets you choose which topics are recorded by the collectors and which
+API endpoints are exposed.
 
 ## Running
 
@@ -19,3 +21,8 @@ By default, the "ingestor_historical" service ingests data for season `2024`.
 Set the `OPENF1_HISTORICAL_SEASON` environment variable to override this year.
 You can also specify the desired season directly from the control panel before
 starting the service.
+
+The panel exposes settings to select the topics recorded by both collectors as
+well as the list of available API endpoints. These settings are stored in the
+`OPENF1_LIVE_TOPICS`, `OPENF1_HIST_TOPICS` and `OPENF1_API_COLLECTIONS`
+environment variables respectively.

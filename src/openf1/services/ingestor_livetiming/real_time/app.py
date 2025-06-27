@@ -20,7 +20,11 @@ async def main():
         tasks = []
 
         # Record raw data and save it to file
-        topics = get_topics()
+        env_topics = os.getenv("OPENF1_LIVE_TOPICS")
+        topics = sorted(list(get_topics()))
+        if env_topics:
+            allowed = {t.strip() for t in env_topics.split(",") if t.strip()}
+            topics = [t for t in topics if t in allowed]
         logger.info(f"Starting live recording of the following topics: {topics}")
         task_recording = asyncio.create_task(
             record_to_file(filepath=temp.name, topics=topics, timeout=TIMEOUT)
