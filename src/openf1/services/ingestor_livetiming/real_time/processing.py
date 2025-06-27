@@ -2,6 +2,8 @@ import asyncio
 import json
 import os
 
+import aiofiles
+
 from loguru import logger
 
 from openf1.services.ingestor_livetiming.core.decoding import decode
@@ -84,18 +86,18 @@ async def ingest_file(filepath: str):
     appended to the file and processes them in real-time.
     """
 
-    with open(filepath, "r") as file:
+    async with aiofiles.open(filepath, "r") as file:
         # Read and ingest existing lines
-        lines = file.readlines()
+        lines = await file.readlines()
         for line in lines:
             await ingest_line(line)
 
         # Move to the end of the file
-        file.seek(0, 2)
+        await file.seek(0, os.SEEK_END)
 
         # Watch for new lines
         while True:
-            line = file.readline()
+            line = await file.readline()
             if not line:
                 await asyncio.sleep(0.1)  # Sleep a bit before trying again
                 continue
