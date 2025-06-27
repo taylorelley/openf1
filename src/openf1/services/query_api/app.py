@@ -1,3 +1,4 @@
+import os
 import re
 import traceback
 
@@ -36,6 +37,13 @@ app.add_middleware(
 
 
 _favicon = None
+
+_collections_env = os.getenv("OPENF1_API_COLLECTIONS")
+_allowed_collections = (
+    {c.strip().lower() for c in _collections_env.split(",") if c.strip()}
+    if _collections_env
+    else None
+)
 
 
 async def _get_favicon() -> Response:
@@ -79,6 +87,8 @@ async def _process_request(request: Request, path: str) -> list[dict] | Response
 
     query_params = parse_query_params(request.query_params)
     collection = _parse_path(path)
+    if _allowed_collections is not None and collection not in _allowed_collections:
+        raise HTTPException(status_code=404, detail="Endpoint disabled")
     use_csv = "csv" in query_params and query_params.pop("csv")[0].value
 
     results = get_from_cache(path=path, query_params=query_params)

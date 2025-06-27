@@ -9,8 +9,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
+from openf1.services.ingestor_livetiming.core.objects import (
+    _get_collections_cls_by_name,
+    get_topics,
+)
+
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+# Available data options
+ALL_TOPICS = sorted(get_topics())
+ALL_COLLECTIONS = sorted(_get_collections_cls_by_name().keys())
 
 # Year used when ingesting historical data via the control panel.
 HISTORICAL_YEAR = os.getenv("OPENF1_HISTORICAL_SEASON", "2024")
@@ -55,6 +64,7 @@ def get_service_cmd(name: str, *, year: str | None = None) -> list[str] | None:
 
     return cmd
 
+
 app = FastAPI(title="OpenF1 Control Panel")
 
 
@@ -67,7 +77,8 @@ def start_service(name: str, *, year: str | None = None) -> None:
         logger.warning(f"Unknown service: {name}")
         return
     logger.info(f"Starting service {name}: {' '.join(cmd)}")
-    running_processes[name] = subprocess.Popen(cmd)
+    env = os.environ.copy()
+    running_processes[name] = subprocess.Popen(cmd, env=env)
 
 
 def stop_service(name: str) -> None:
@@ -91,6 +102,23 @@ async def index(request: Request):
         "request": request,
         "services": statuses,
         "historical_year": HISTORICAL_YEAR,
+        "topics": ALL_TOPICS,
+        "collections": ALL_COLLECTIONS,
+        "selected_live_topics": (
+            os.getenv("OPENF1_LIVE_TOPICS", "").split(",")
+            if os.getenv("OPENF1_LIVE_TOPICS")
+            else ALL_TOPICS
+        ),
+        "selected_hist_topics": (
+            os.getenv("OPENF1_HIST_TOPICS", "").split(",")
+            if os.getenv("OPENF1_HIST_TOPICS")
+            else ALL_TOPICS
+        ),
+        "selected_api_collections": (
+            os.getenv("OPENF1_API_COLLECTIONS", "").split(",")
+            if os.getenv("OPENF1_API_COLLECTIONS")
+            else ALL_COLLECTIONS
+        ),
     }
     return templates.TemplateResponse("index.html", context)
 
@@ -105,4 +133,24 @@ async def control(
         start_service(name, year=year)
     elif action == "stop":
         stop_service(name)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@app.post("/settings")
+async def update_settings(
+    live_topics: list[str] = Form(None),
+    hist_topics: list[str] = Form(None),
+    api_collections: list[str] = Form(None),
+    year: str | None = Form(None),
+):
+    if live_topics is not None:
+        os.environ["OPENF1_LIVE_TOPICS"] = ",".join(live_topics)
+    if hist_topics is not None:
+        os.environ["OPENF1_HIST_TOPICS"] = ",".join(hist_topics)
+    if api_collections is not None:
+        os.environ["OPENF1_API_COLLECTIONS"] = ",".join(api_collections)
+    if year:
+        global HISTORICAL_YEAR
+        HISTORICAL_YEAR = year
+        os.environ["OPENF1_HISTORICAL_SEASON"] = year
     return RedirectResponse(url="/", status_code=303)
