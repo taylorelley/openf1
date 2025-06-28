@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime, timedelta
 from functools import lru_cache
+from pathlib import Path
 
 import pytz
 import requests
@@ -24,10 +25,16 @@ from openf1.util.schedule import get_meeting_keys
 from openf1.util.schedule import get_schedule as _get_schedule
 from openf1.util.schedule import get_session_keys
 
+CACHE_DIR = Path(os.getenv("OPENF1_CACHE_DIR", Path.home() / ".cache" / "openf1"))
+
 cli = typer.Typer()
 
 # Flag to determine if the script is being run from the command line
 _is_called_from_cli = False
+
+
+def _session_cache_dir(year: int, meeting_key: int, session_key: int) -> Path:
+    return CACHE_DIR / "historical" / str(year) / str(meeting_key) / str(session_key)
 
 
 @cli.command()
@@ -67,11 +74,18 @@ def get_session_url(year: int, meeting_key: int, session_key: int) -> str:
     return session_url
 
 
-def _list_topics(session_url: str) -> list[str]:
+def _list_topics(session_url: str, cache_dir: Path) -> list[str]:
     """Returns all the available raw data filenames for the session"""
-    index_url = join_url(session_url, "Index.json")
-    index_response = requests.get(index_url)
-    index_content = json.loads(index_response.content)
+    index_file = cache_dir / "Index.json"
+    if index_file.exists():
+        with index_file.open("rb") as f:
+            index_content = json.load(f)
+    else:
+        index_url = join_url(session_url, "Index.json")
+        index_response = requests.get(index_url)
+        index_content = json.loads(index_response.content)
+        index_file.parent.mkdir(parents=True, exist_ok=True)
+        index_file.write_bytes(index_response.content)
 
     filenames = [v["StreamPath"] for v in index_content["Feeds"].values()]
     topics = [f[: -len(".jsonStream")] for f in filenames if f.endswith(".jsonStream")]
@@ -89,7 +103,8 @@ def list_topics(
     session_url = get_session_url(
         year=year, meeting_key=meeting_key, session_key=session_key
     )
-    topics = _list_topics(session_url)
+    cache_dir = _session_cache_dir(year, meeting_key, session_key)
+    topics = _list_topics(session_url, cache_dir)
 
     if _is_called_from_cli:
         print(topics)
@@ -97,10 +112,18 @@ def list_topics(
 
 
 @lru_cache()
-def _get_topic_content(session_url: str, topic: str) -> list[str]:
+def _get_topic_content(session_url: str, topic: str, cache_dir: Path) -> list[str]:
     topic_filename = f"{topic}.jsonStream"
-    url_topic = join_url(session_url, topic_filename)
-    topic_content = requests.get(url_topic).text.split("\r\n")
+    cache_file = cache_dir / topic_filename
+    if cache_file.exists():
+        text = cache_file.read_text()
+    else:
+        url_topic = join_url(session_url, topic_filename)
+        response = requests.get(url_topic)
+        text = response.text
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(text)
+    topic_content = text.split("\r\n")
     return topic_content
 
 
@@ -111,7 +134,10 @@ def get_topic_content(
     session_url = get_session_url(
         year=year, meeting_key=meeting_key, session_key=session_key
     )
-    content = _get_topic_content(session_url=session_url, topic=topic)
+    cache_dir = _session_cache_dir(year, meeting_key, session_key)
+    content = _get_topic_content(
+        session_url=session_url, topic=topic, cache_dir=cache_dir
+    )
 
     if _is_called_from_cli:
         print("\n".join(content))
@@ -162,7 +188,7 @@ def _parse_and_decode_topic_content(
 
 
 @lru_cache()
-def _get_t0(session_url: str) -> datetime:
+def _get_t0(session_url: str, cache_dir: Path) -> datetime:
     """Calculates the most likely start time of a session (t0) based on
     Position and CarData messages.
     The calculation method comes from the FastF1 package (https://github.com/theOehrly/Fast-F1/blob/317bacf8c61038d7e8d0f48165330167702b349f/fastf1/core.py#L2208).
@@ -170,7 +196,11 @@ def _get_t0(session_url: str) -> datetime:
     t_ref = datetime(1970, 1, 1)
     t0_candidates = []
 
-    position_content = _get_topic_content(session_url=session_url, topic="Position.z")
+    position_content = _get_topic_content(
+        session_url=session_url,
+        topic="Position.z",
+        cache_dir=cache_dir,
+    )
     position_messages = _parse_and_decode_topic_content(
         topic="Position.z",
         topic_raw_content=position_content,
@@ -182,7 +212,11 @@ def _get_t0(session_url: str) -> datetime:
             session_time = message.timepoint - t_ref
             t0_candidates.append(timepoint - session_time)
 
-    cardata_content = _get_topic_content(session_url=session_url, topic="CarData.z")
+    cardata_content = _get_topic_content(
+        session_url=session_url,
+        topic="CarData.z",
+        cache_dir=cache_dir,
+    )
     cardata_messages = _parse_and_decode_topic_content(
         topic="CarData.z",
         topic_raw_content=cardata_content,
@@ -205,19 +239,23 @@ def get_t0(year: int, meeting_key: int, session_key: int) -> datetime:
     session_url = get_session_url(
         year=year, meeting_key=meeting_key, session_key=session_key
     )
-    t0 = _get_t0(session_url)
+    cache_dir = _session_cache_dir(year, meeting_key, session_key)
+    t0 = _get_t0(session_url, cache_dir)
 
     if _is_called_from_cli:
         print(t0)
     return t0
 
 
-def _get_messages(session_url: str, topics: list[str], t0: datetime) -> list[Message]:
+def _get_messages(
+    session_url: str, topics: list[str], t0: datetime, cache_dir: Path
+) -> list[Message]:
     messages = []
     for topic in topics:
         raw_content = _get_topic_content(
             session_url=session_url,
             topic=topic,
+            cache_dir=cache_dir,
         )
         messages += _parse_and_decode_topic_content(
             topic=topic,
@@ -242,11 +280,14 @@ def get_messages(
     if verbose:
         logger.info(f"Session URL: {session_url}")
 
-    t0 = _get_t0(session_url)
+    cache_dir = _session_cache_dir(year, meeting_key, session_key)
+    t0 = _get_t0(session_url, cache_dir)
     if verbose:
         logger.info(f"t0: {t0}")
 
-    messages = _get_messages(session_url=session_url, topics=topics, t0=t0)
+    messages = _get_messages(
+        session_url=session_url, topics=topics, t0=t0, cache_dir=cache_dir
+    )
     if verbose:
         logger.info(f"Fetched {len(messages)} messages")
 
@@ -270,7 +311,8 @@ def _get_processed_documents(
     if verbose:
         logger.info(f"Session URL: {session_url}")
 
-    t0 = _get_t0(session_url)
+    cache_dir = _session_cache_dir(year, meeting_key, session_key)
+    t0 = _get_t0(session_url, cache_dir)
     if verbose:
         logger.info(f"t0: {t0}")
 
@@ -283,7 +325,12 @@ def _get_processed_documents(
     if verbose:
         logger.info(f"Topics used: {topics}")
 
-    messages = _get_messages(session_url=session_url, topics=topics, t0=t0)
+    messages = _get_messages(
+        session_url=session_url,
+        topics=topics,
+        t0=t0,
+        cache_dir=cache_dir,
+    )
     if verbose:
         logger.info(f"Fetched {len(messages)} messages")
 
