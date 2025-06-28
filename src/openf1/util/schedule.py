@@ -1,10 +1,19 @@
 import json
+import os
 from functools import lru_cache
+from pathlib import Path
 
 import requests
 
 from openf1.util.db import get_latest_session_info
 from openf1.util.misc import join_url
+
+CACHE_DIR = Path(os.getenv("OPENF1_CACHE_DIR", Path.home() / ".cache" / "openf1"))
+
+
+def _schedule_cache_file(year: int) -> Path:
+    return CACHE_DIR / "schedule" / f"{year}.json"
+
 
 MISSING_SESSIONS = {
     # TODO: Add sessions for year 2022 (which are all missing)
@@ -228,11 +237,17 @@ MISSING_SESSIONS = {
 @lru_cache()
 def get_schedule(year: int) -> dict:
     """Fetches the Formula 1 race schedule for a specified year (past sessions only)"""
-    BASE_URL = "https://livetiming.formula1.com/static"
-    url = join_url(BASE_URL, f"{year}/Index.json")
-    response = requests.get(url)
-    content_json = response.content
-    content_dict = json.loads(content_json)
+    cache_file = _schedule_cache_file(year)
+    if cache_file.exists():
+        with cache_file.open("rb") as f:
+            content_dict = json.load(f)
+    else:
+        BASE_URL = "https://livetiming.formula1.com/static"
+        url = join_url(BASE_URL, f"{year}/Index.json")
+        response = requests.get(url)
+        content_dict = json.loads(response.content)
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_bytes(response.content)
 
     # Add missing sessions
     if year in MISSING_SESSIONS:
