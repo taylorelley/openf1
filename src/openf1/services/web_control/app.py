@@ -13,6 +13,7 @@ from openf1.services.ingestor_livetiming.core.objects import (
     _get_collections_cls_by_name,
     get_topics,
 )
+from openf1.util.create_mongo_indexes import create_indexes
 
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -66,6 +67,15 @@ def get_service_cmd(name: str, *, year: str | None = None) -> list[str] | None:
 
 
 app = FastAPI(title="OpenF1 Control Panel")
+
+
+@app.on_event("startup")
+def _create_indexes_on_startup() -> None:
+    """Ensure MongoDB indexes exist before handling requests."""
+    try:
+        create_indexes()
+    except Exception as e:  # pragma: no cover - best effort
+        logger.error(f"Failed to create MongoDB indexes: {e}")
 
 
 def start_service(name: str, *, year: str | None = None) -> None:

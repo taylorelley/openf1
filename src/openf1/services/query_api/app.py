@@ -18,9 +18,20 @@ from openf1.services.query_api.query_params import (
     query_params_to_mongo_filters,
 )
 from openf1.util.db import get_documents
+from openf1.util.create_mongo_indexes import create_indexes
 
 rate_limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+
+
+@app.on_event("startup")
+def _create_indexes_on_startup() -> None:
+    """Ensure MongoDB indexes exist before handling requests."""
+    try:
+        create_indexes()
+    except Exception as e:  # pragma: no cover - best effort
+        logger.error(f"Failed to create MongoDB indexes: {e}")
+
 
 app.state.limiter = rate_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
