@@ -52,6 +52,24 @@ export MONGO_CONNECTION_STRING="mongodb://localhost:27017"
 - Fetch and ingest data: [services/ingestor_livetiming/](src/openf1/services/ingestor_livetiming/README.md)
 - Start and query the API: [services/query_api/](src/openf1/services/query_api/README.md)
 
+## MongoDB indexes
+
+OpenF1 queries rely on indexes for efficient lookups. Each collection should at
+least have single-field indexes on:
+
+- `_key`
+- `date_start`
+- `meeting_key`
+- `session_key`
+
+When running the project via Docker Compose, the control panel automatically
+creates these indexes on startup. For manual setups, run the following command
+to add them if they are missing:
+
+```bash
+python -m openf1.util.create_mongo_indexes
+```
+
 ## Running with Docker Compose
 
 The repository includes a `docker-compose.yml` file that sets up MongoDB and starts the OpenF1 control panel.
