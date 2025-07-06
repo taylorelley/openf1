@@ -3,6 +3,9 @@
 This module receives, processes, and stores F1 live timing data.<br />
 Live timing data can be ingested during a session (cf. [real_time/](real_time/))
 or afterwards (cf. [historical/](historical/)).
+A minimal [live_recorder/](live_recorder/) service is also provided to record
+the raw feed, ingest it into MongoDB and save the messages as `.jsonStream`
+files for later use.
 
 ## Main concepts
 
