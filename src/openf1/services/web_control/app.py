@@ -41,6 +41,11 @@ BASE_SERVICES: dict[str, list[str]] = {
         "-m",
         "openf1.services.ingestor_livetiming.real_time.app",
     ],
+    "live_recorder": [
+        "python",
+        "-m",
+        "openf1.services.ingestor_livetiming.live_recorder.app",
+    ],
     "ingestor_historical": [
         "python",
         "-m",

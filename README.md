@@ -82,6 +82,7 @@ docker compose up --build
 The control panel will be available at [http://localhost:9876](http://localhost:9876).
 Start the "Query API" service from the panel to access the API at [http://localhost:9877](http://localhost:9877).
 You can also set the desired season year for historical ingestion directly from the panel.
+The panel additionally exposes a **live_recorder** service which records the raw timing feed, ingests it into MongoDB and stores it locally using the same format as the historical files.
 
 ## Supporting OpenF1
 
